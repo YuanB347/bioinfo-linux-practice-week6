@@ -1,0 +1,1 @@
+# bioinfo-linux-practice-week6
