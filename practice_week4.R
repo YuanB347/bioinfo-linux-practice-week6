@@ -1,0 +1,129 @@
+# ============================================================
+# 练习：使用 ggplot2 的 mpg 数据集
+# 文件：practice_week4.R
+# 说明：完成第1题（类别数量分布）和第2题（两种类别油耗分布）
+# ============================================================
+
+# 1. 加载必要的包 --------------------------------------------------
+library(ggplot2)   # 绘图
+library(dplyr)     # 数据处理
+library(forcats)   # 因子顺序调整（fct_infreq）
+
+# 2. 查看数据集基本信息 --------------------------------------------
+cat("===== mpg 数据集基本信息 =====\n")
+cat("数据集行数：", nrow(mpg), "\n")
+cat("数据集列名：", paste(colnames(mpg), collapse = ", "), "\n\n")
+
+# ============================================================
+# 第1题：不同汽车类别 class 的数量分布
+# ============================================================
+
+cat("===== 第1题：各类别数量统计 =====\n")
+
+# 统计每种 class 的频数
+class_count <- mpg %>%
+  group_by(class) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))  # 按数量降序
+
+# 用 cat 输出统计表（关键内容）
+cat("各类别车型数量（降序）：\n")
+print(class_count)
+cat("\n")
+
+# 为绘图准备数据：将 class 转为因子，按频数排序（从高到低）
+mpg_sorted <- mpg %>%
+  mutate(class = fct_infreq(class))  # 自动按频数降序排列因子水平
+
+# ----- 图形1：条形图（geom_bar）-----------------------------------
+p1 <- ggplot(mpg_sorted, aes(x = class)) +
+  geom_bar(fill = "steelblue", color = "black") +
+  labs(
+    title = "各汽车类别车型数量（条形图）",
+    x = "汽车类别",
+    y = "数量"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p1)
+cat(">> 条形图已绘制，按数量从高到低排序。\n\n")
+
+# ----- 图形2：饼图（使用 geom_bar + coord_polar）------------------
+# 为饼图准备比例标签
+p2_data <- mpg_sorted %>%
+  group_by(class) %>%
+  summarise(count = n()) %>%
+  mutate(prop = count / sum(count),
+         label = paste0(class, "\n", round(prop * 100, 1), "%"))
+
+p2 <- ggplot(p2_data, aes(x = "", y = prop, fill = class)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  labs(
+    title = "各汽车类别占比（饼图）",
+    fill = "类别"
+  ) +
+  theme_void() +  # 清空背景、坐标轴
+  geom_text(aes(label = label), 
+            position = position_stack(vjust = 0.5), 
+            size = 3.5, check_overlap = TRUE) +
+  scale_fill_brewer(palette = "Set3")
+
+print(p2)
+cat(">> 饼图已绘制，显示类别比例。\n\n")
+
+# ============================================================
+# 第2题：选择 compact 和 suv，比较城市油耗 cty 的分布
+# ============================================================
+
+cat("===== 第2题：compact 与 suv 的城市油耗分布比较 =====\n")
+
+# 筛选两种类别
+selected_classes <- c("compact", "suv")
+mpg_sub <- mpg %>%
+  filter(class %in% selected_classes) %>%
+  mutate(class = factor(class, levels = selected_classes))  # 固定顺序
+
+# 输出样本量
+cat("compact 样本量：", sum(mpg_sub$class == "compact"), "\n")
+cat("suv 样本量：", sum(mpg_sub$class == "suv"), "\n\n")
+
+# ----- 图形3：重叠直方图（调整组距）-------------------------------
+# 计算合理组距：使用 Freedman-Diaconis 规则或手动尝试
+# 这里手动设置组距为 2（mpg 单位），以清晰展示分布差异
+binwidth_val <- 2
+cat("直方图组距设置为：", binwidth_val, "\n")
+
+p3 <- ggplot(mpg_sub, aes(x = cty, fill = class)) +
+  geom_histogram(binwidth = binwidth_val, 
+                 alpha = 0.6, position = "identity", color = "black") +
+  labs(
+    title = "compact 与 suv 城市油耗分布（直方图）",
+    x = "城市油耗 (mpg)",
+    y = "频数",
+    fill = "类别"
+  ) +
+  theme_minimal()
+
+print(p3)
+
+# ----- 图形4：核密度图（调整带宽）----------------------------------
+# 使用带宽 bw = 1.2（通过尝试，使曲线平滑但不失真）
+bw_val <- 1.2
+cat("核密度带宽设置为：", bw_val, "\n\n")
+
+p4 <- ggplot(mpg_sub, aes(x = cty, fill = class, color = class)) +
+  geom_density(alpha = 0.5, bw = bw_val) +
+  labs(
+    title = "compact 与 suv 城市油耗分布（密度图）",
+    x = "城市油耗 (mpg)",
+    y = "密度",
+    fill = "类别", color = "类别"
+  ) +
+  theme_minimal()
+
+print(p4)
+
+cat("===== 所有图形绘制完成 =====\n")
+savehistory("practice_week4.Rhistory")
